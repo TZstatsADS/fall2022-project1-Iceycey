@@ -1,0 +1,216 @@
+---
+title: "GR 5243 Project 1"
+author: "Xilin Huang"
+date: '2022-09-17'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE ,include = FALSE}
+# load packages
+library("rvest")
+library("tibble")
+library("syuzhet")
+library("sentimentr")
+library("gplots")
+library("dplyr")
+library("tm")
+library("syuzhet")
+library("factoextra")
+library("beeswarm")
+library("scales")
+library("RColorBrewer")
+library("RANN")
+library("topicmodels")
+library("stringr")
+library("ggplot2")
+library("tidyr")
+library("wordcloud")
+library("tidytext")
+```
+
+# Load the History of Philosophy Dataset
+
+```{r}
+data<-read.csv("philosophy_data.csv")
+```
+
+# The basic information about this dataset
+
+```{r}
+#show the column name
+colnames(data)
+```
+
+In this project, we want to focus on the school. So, let's have a look at want kind of schools we have.
+
+```{r}
+unique(data$school)
+```
+
+```{r}
+par(mar = c(9,4,4,2) + 0.1)
+school_perc<-t(prop.table(table(data$school))) * 100
+school_perc_bp<-barplot(school_perc, ylab = "Percentage",las=2, main = "Percentage of School",col=rgb(0.2,0.4,0.6,0.6),ylim = c(0,20))
+text(school_perc_bp,school_perc+1,labels = round(school_perc, 1),srt=45,)
+```
+
+From this plot, the top 5 schools of philosophy works are analytic, aristotle, german_idealism, plato and continental.
+
+```{r}
+#top 5 author
+data%>%
+  count(author)%>%
+  top_n(5,n)%>%
+  arrange(desc(n))
+```
+
+According to this table, we can find that Aristotle and Plato composed most works in the history of philosophy.
+
+# Compare Aristotle's opinion with Plato's opinion
+
+## The number of aristotle and plato school's works
+```{r}
+school_aristotle<-data[data$school=='aristotle',]
+school_plato<-data[data$school=='plato',]
+dim(school_aristotle)
+dim(school_plato)
+print(paste("The number of works belong to aristotle school is",dim(school_aristotle)[1]))
+print(paste("The number of works belong to plato school is",dim(school_plato)[1]))
+```
+
+## The number of Aristotle' Work and Plato's Work
+```{r}
+aristotle_work<-data%>%
+  filter(grepl('Aristotle',author))
+print(paste("The number of works written by Aristotle is",dim(aristotle_work)[1]))
+plato_work<-data%>%
+  filter(grepl('Plato',author))
+print(paste("The number of works written by Plato is",dim(plato_work)[1]))
+```
+
+We can conclude that from this dataset, all the Aristotle school work recorded in this dataset are from Aristotle himself. The same for Plato.
+
+## Analyze the sentence length of each authors' works
+
+```{r}
+aristotle_length<-str_count(school_aristotle$sentence_str,pattern=' ')
+plato_length<-str_count(school_plato$sentence_str,pattern=' ')
+hist(aristotle_length,breaks=15,main = "Histogram of Plato's Sentence-Length")
+hist(plato_length,breaks=15,main = "Histogram of Plato's Sentence-Length")
+```
+
+##Aristotle's Wordcloud
+
+```{r warning=FALSE}
+aris.all<-Corpus(VectorSource(aristotle_work$sentence_str))
+aris.all<-tm_map(aris.all, stripWhitespace)
+aris.all<-tm_map(aris.all, content_transformer(tolower))
+aris.all<-tm_map(aris.all, removeWords, stopwords("english"))
+aris.all<-tm_map(aris.all, removeWords, character(0))
+aris.all<-tm_map(aris.all, removePunctuation)
+tdm.aris.all<-TermDocumentMatrix(aris.all)
+tdm.aris.tidy=tidy(tdm.aris.all)
+tdm.aris.overall=summarise(group_by(tdm.aris.tidy,term),sum(count))
+```
+
+```{r warning=FALSE}
+wordcloud(tdm.aris.overall$term, tdm.aris.overall$`sum(count)`,
+          scale=c(4,0.5),
+          max.words=100,
+          min.freq=1,
+          random.order=FALSE,
+          rot.per=0.3,
+          use.r.layout=T,
+          random.color=FALSE,
+          colors=brewer.pal(9,"Blues"))
+```
+
+## Plato's Wordcloud
+
+```{r warning=FALSE}
+plato.all<-Corpus(VectorSource(plato_work$sentence_str))
+plato.all<-tm_map(plato.all, stripWhitespace)
+plato.all<-tm_map(plato.all, content_transformer(tolower))
+plato.all<-tm_map(plato.all, removeWords, stopwords("english"))
+plato.all<-tm_map(plato.all, removeWords, character(0))
+plato.all<-tm_map(plato.all, removePunctuation)
+tdm.plato.all<-TermDocumentMatrix(plato.all)
+tdm.plato.tidy=tidy(tdm.plato.all)
+tdm.plato.overall=summarise(group_by(tdm.plato.tidy,term),sum(count))
+```
+
+```{r warning=FALSE}
+wordcloud(tdm.plato.overall$term, tdm.plato.overall$`sum(count)`,
+          scale=c(4,0.5),
+          max.words=100,
+          min.freq=1,
+          random.order=FALSE,
+          rot.per=0.3,
+          use.r.layout=T,
+          random.color=FALSE,
+          colors=brewer.pal(9,"Blues"))
+```
+
+## Emotional analysis of Aristotle and Plato
+
+```{r warning=FALSE}
+aris_emo<-get_nrc_sentiment(aristotle_work$sentence_str)
+```
+
+```{r warning=FALSE}
+plato_emo<-get_nrc_sentiment(plato_work$sentence_str)
+```
+
+```{r warning=FALSE}
+par(mfrow=c(1,2))
+#transpose
+td<-data.frame(t(aris_emo))
+#The function rowSums computes column sums across rows for each level of a grouping variable.
+td_new <- data.frame(rowSums(td[2:253]))
+#Transformation and cleaning
+names(td_new)[1] <- "count"
+td_new <- cbind("sentiment" = rownames(td_new), td_new)
+rownames(td_new) <- NULL
+td_new2<-td_new[1:8,]
+#Plot One - count of words associated with each sentiment
+quickplot(sentiment, data=td_new2, weight=count, geom="bar", fill=sentiment, ylab="count")+ggtitle("Aristotle sentiment analysis")
+#plato
+#transpose
+td_p<-data.frame(t(plato_emo))
+#The function rowSums computes column sums across rows for each level of a grouping variable.
+td_new_p<- data.frame(rowSums(td_p[2:253]))
+#Transformation and cleaning
+names(td_new_p)[1] <- "count"
+td_new_p<- cbind("sentiment" = rownames(td_new_p), td_new_p)
+rownames(td_new_p) <- NULL
+td_new2_p<-td_new_p[1:8,]
+#Plot One - count of words associated with each sentiment
+quickplot(sentiment, data=td_new2_p, weight=count, geom="bar", fill=sentiment, ylab="count")+ggtitle("Plato sentiment analysis")
+```
+
+# Number of words
+
+```{r}
+aristotle_work_no<-dim(aristotle_work)[1]
+sum(aristotle_length)/aristotle_work_no
+```
+
+```{r}
+plato_work_no<-dim(plato_work)[1]
+sum(plato_length)/plato_work_no
+```
+
+# Conclusion
+
+According to the definition, materialism is the doctrine that nothing exists except matter and its movements and modifications. The definition of idealism is that any of various system of thought in which the objects of knowledge are held to be in some way dependent on the activity of mind.
+
+From above analysis, we can find that Aristotle cares more about the fact and Plato cares more about what you think. This matches with the definition of their works.
+
+
+
+
+
