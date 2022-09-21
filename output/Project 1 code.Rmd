@@ -45,7 +45,7 @@ data<-read.csv("philosophy_data.csv")
 colnames(data)
 ```
 
-In this project, we want to focus on the school. So, let's have a look at want kind of schools we have.
+In this project, we want to focus on the school. So, let's have a look at what kind of schools we have.
 
 ```{r}
 unique(data$school)
@@ -82,7 +82,7 @@ print(paste("The number of works belong to aristotle school is",dim(school_arist
 print(paste("The number of works belong to plato school is",dim(school_plato)[1]))
 ```
 
-## The number of Aristotle' Work and Plato's Work
+## The number of Aristotle's Work and Plato's Work
 ```{r}
 aristotle_work<-data%>%
   filter(grepl('Aristotle',author))
@@ -98,12 +98,13 @@ We can conclude that from this dataset, all the Aristotle school work recorded i
 
 ```{r}
 aristotle_length<-str_count(school_aristotle$sentence_str,pattern=' ')
+aristotle_length<-aristotle_length[aristotle_length<=150]
 plato_length<-str_count(school_plato$sentence_str,pattern=' ')
-hist(aristotle_length,breaks=15,main = "Histogram of Plato's Sentence-Length")
+hist(aristotle_length,breaks=seq(0,150,10),main = "Histogram of Aristotle's Sentence-Length")
 hist(plato_length,breaks=15,main = "Histogram of Plato's Sentence-Length")
 ```
 
-##Aristotle's Wordcloud
+## Aristotle's Wordcloud
 
 ```{r warning=FALSE}
 aris.all<-Corpus(VectorSource(aristotle_work$sentence_str))
@@ -196,12 +197,12 @@ quickplot(sentiment, data=td_new2_p, weight=count, geom="bar", fill=sentiment, y
 
 ```{r}
 aristotle_work_no<-dim(aristotle_work)[1]
-sum(aristotle_length)/aristotle_work_no
+sum(aristotle_length)
 ```
 
 ```{r}
 plato_work_no<-dim(plato_work)[1]
-sum(plato_length)/plato_work_no
+sum(plato_length)
 ```
 
 # Conclusion
